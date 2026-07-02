@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>WebAR - MindAR Starter</title>
+
+  <!-- A-Frame本体 -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- MindAR (画像マーカートラッキング用のA-Frame拡張) -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    body { margin: 0; overflow: hidden; }
+    /* MindARが自動生成するスキャンUI・エラーメッセージのスタイル調整 */
+    .mindar-ui-overlay { z-index: 2; }
+    #loading-msg {
+      position: fixed; top: 0; left: 0; width: 100%; padding: 12px;
+      background: rgba(0,0,0,0.7); color: #fff; font-family: sans-serif;
+      font-size: 14px; text-align: center; z-index: 3; box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading-msg">マーカー画像にスマホのカメラをかざしてください</div>
+
+  <!--
+    imageTargetSrc: 後述の手順で書き出す「targets.mind」ファイルへのパス
+    autoStart: ページを開いたら自動でカメラ起動
+    uiScanning / uiLoading: MindAR標準のスキャン中UIを表示するか
+  -->
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiScanning: yes; uiLoading: yes;"
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: true"
+  >
+    <a-assets>
+      <!-- Blenderからglb書き出ししたモデルをここに配置 -->
+      <a-asset-item id="my-model" src="./model.glb"></a-asset-item>
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;"></a-camera>
+
+    <!--
+      targetIndex: 0 は「1つ目に登録したマーカー画像」を指す
+      複数マーカーを使う場合はtargetIndexを増やしてentityを複製する
+    -->
+    <a-entity mindar-image-target="targetIndex: 0">
+      <a-gltf-model
+        src="#my-model"
+        position="0 0 0"
+        rotation="0 0 0"
+        scale="0.05 0.05 0.05"
+        animation-mixer
+      ></a-gltf-model>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    // マーカーが見つかった/見失った時の挙動を追加したい場合はここに書く
+    document.querySelector('[mindar-image-target]').addEventListener('targetFound', () => {
+      document.getElementById('loading-msg').style.display = 'none';
+    });
+  </script>
+
+</body>
+</html>
