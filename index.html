@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
@@ -21,11 +21,42 @@
       background: rgba(0,0,0,0.7); color: #fff; font-family: sans-serif;
       font-size: 14px; text-align: center; z-index: 3; box-sizing: border-box;
     }
+    /* シャッターボタン */
+    #shutter-btn {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      width: 70px; height: 70px; border-radius: 50%;
+      background: #fff; border: 4px solid rgba(255,255,255,0.6);
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.3);
+      z-index: 5; padding: 0;
+    }
+    #shutter-btn:active { background: #ddd; }
+    /* 撮影結果のプレビュー画面 */
+    #photo-preview {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+      z-index: 10; flex-direction: column; align-items: center; justify-content: center;
+      font-family: sans-serif; color: #fff; text-align: center; padding: 16px; box-sizing: border-box;
+    }
+    #photo-preview img { max-width: 100%; max-height: 75vh; border-radius: 8px; }
+    #photo-preview p { font-size: 14px; margin: 12px 0; }
+    #photo-close-btn {
+      margin-top: 8px; padding: 10px 24px; border-radius: 24px; border: none;
+      background: #fff; font-size: 14px;
+    }
   </style>
 </head>
 <body>
 
   <div id="loading-msg">マーカー画像にスマホのカメラをかざしてください</div>
+
+  <!-- シャッターボタン -->
+  <button id="shutter-btn" aria-label="撮影"></button>
+
+  <!-- 撮影結果のプレビュー(画像を長押しして保存してもらう方式。iOSのSafariはJSからの自動ダウンロードが効かないため) -->
+  <div id="photo-preview">
+    <img id="photo-preview-img" src="" alt="撮影結果" />
+    <p>画像を長押しして「写真に保存」を選んでください</p>
+    <button id="photo-close-btn">閉じる</button>
+  </div>
 
   <!--
     imageTargetSrc: 後述の手順で書き出す「targets.mind」ファイルへのパス
@@ -33,7 +64,7 @@
     uiScanning / uiLoading: MindAR標準のスキャン中UIを表示するか
   -->
   <a-scene
-    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiScanning: yes; uiLoading: yes; filterMinCF: 0.0001; filterBeta: 0.001;"
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiScanning: yes; uiLoading: yes; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 5;"
     color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights"
     vr-mode-ui="enabled: false"
@@ -54,8 +85,8 @@
       <a-gltf-model
         src="#my-model"
         position="0 0 0"
-        rotation="90 0 0"
-        scale="0.55 0.55 0.55"
+        rotation="0 0 0"
+        scale="0.05 0.05 0.05"
         animation-mixer
       ></a-gltf-model>
     </a-entity>
@@ -65,6 +96,41 @@
     // マーカーが見つかった/見失った時の挙動を追加したい場合はここに書く
     document.querySelector('[mindar-image-target]').addEventListener('targetFound', () => {
       document.getElementById('loading-msg').style.display = 'none';
+    });
+
+    // シャッターボタン:カメラ映像(video)とARの3D描画(canvas)を1枚に合成して撮影する
+    document.getElementById('shutter-btn').addEventListener('click', () => {
+      const video = document.querySelector('video');       // MindARが生成するカメラ映像
+      const arCanvas = document.querySelector('canvas.a-canvas'); // A-Frameの3D描画canvas
+
+      if (!video || !arCanvas) {
+        alert('カメラの準備がまだできていません。少し待ってからもう一度お試しください。');
+        return;
+      }
+
+      const w = video.videoWidth || arCanvas.width;
+      const h = video.videoHeight || arCanvas.height;
+
+      // 合成用の一時canvasを作成
+      const composite = document.createElement('canvas');
+      composite.width = w;
+      composite.height = h;
+      const ctx = composite.getContext('2d');
+
+      // ①カメラ映像を下地として描画 → ②その上にAR(3Dモデル)描画を重ねる
+      ctx.drawImage(video, 0, 0, w, h);
+      ctx.drawImage(arCanvas, 0, 0, w, h);
+
+      const dataURL = composite.toDataURL('image/png');
+
+      // プレビューを表示(iOSのSafariはdownload属性が効かないことが多いため、長押し保存方式にしている)
+      const preview = document.getElementById('photo-preview');
+      document.getElementById('photo-preview-img').src = dataURL;
+      preview.style.display = 'flex';
+    });
+
+    document.getElementById('photo-close-btn').addEventListener('click', () => {
+      document.getElementById('photo-preview').style.display = 'none';
     });
   </script>
 
