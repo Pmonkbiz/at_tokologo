@@ -103,23 +103,40 @@
       const video = document.querySelector('video');       // MindARが生成するカメラ映像
       const arCanvas = document.querySelector('canvas.a-canvas'); // A-Frameの3D描画canvas
 
-      if (!video || !arCanvas) {
+      // video.videoWidthがまだ0(読み込み前)の場合は撮影を中断する
+      if (!video || !arCanvas || !video.videoWidth) {
         alert('カメラの準備がまだできていません。少し待ってからもう一度お試しください。');
         return;
       }
 
-      const w = video.videoWidth || arCanvas.width;
-      const h = video.videoHeight || arCanvas.height;
+      const vw = video.videoWidth;   // カメラの生データの幅(例:1280)
+      const vh = video.videoHeight;  // カメラの生データの高さ(例:720)
 
-      // 合成用の一時canvasを作成
+      // スマホが縦向き表示なのに映像データが横長(landscape)の場合、90度回転して補正する
+      const displayIsPortrait = window.innerHeight > window.innerWidth;
+      const videoIsLandscape = vw > vh;
+      const needsRotation = displayIsPortrait && videoIsLandscape;
+
       const composite = document.createElement('canvas');
-      composite.width = w;
-      composite.height = h;
       const ctx = composite.getContext('2d');
 
-      // ①カメラ映像を下地として描画 → ②その上にAR(3Dモデル)描画を重ねる
-      ctx.drawImage(video, 0, 0, w, h);
-      ctx.drawImage(arCanvas, 0, 0, w, h);
+      if (needsRotation) {
+        // 幅と高さを入れ替えたサイズのcanvasを用意し、中心を軸に90度回転させて描画する
+        composite.width = vh;
+        composite.height = vw;
+        ctx.save();
+        ctx.translate(composite.width / 2, composite.height / 2);
+        ctx.rotate(90 * Math.PI / 180);
+        ctx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+        ctx.restore();
+      } else {
+        composite.width = vw;
+        composite.height = vh;
+        ctx.drawImage(video, 0, 0, vw, vh);
+      }
+
+      // ARの3Dモデル描画を、カメラ映像と同じサイズに引き伸ばして重ねる
+      ctx.drawImage(arCanvas, 0, 0, composite.width, composite.height);
 
       const dataURL = composite.toDataURL('image/png');
 
